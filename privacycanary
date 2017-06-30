@@ -1,0 +1,35 @@
+#!/bin/bash
+
+EMAIL='your@email.here'
+ISP="url_to_your_isps_privacy_policy"
+#ISP="http://www.centurylink.com/aboutus/legal/privacypolicy.html"
+
+DATE=$(which date)
+DIFF=$(which diff)
+MD5=$(which md5sum)
+AWK=$(which awk)
+CURL=$(which curl)
+TS=$($DATE  +"%Y%m%d%H%M")
+CANARY=/var/lib/canary
+OLDFILE=$CANARY/old_ispprivacy.html
+NEWFILE=$CANARY/new_ispprivacy.html
+MAIL=$(which mail)
+
+test -d $CANARY || mkdir -p $CANARY
+
+$CURL -s $ISP > $NEWFILE
+
+if [[ ! -f $OLDFILE  ]]; then
+	mv $NEWFILE $OLDFILE
+	exit 0
+fi 
+
+test ! -f $CANARY/diff.txt || rm $CANARY/diff.txt
+$DIFF -u $NEWFILE $OLDFILE > $CANARY/diff.txt
+if [[ $? -ne 0 ]]; then
+	OUTPUT="Please review $ISP as it has recently been updated\n\n"
+        MYDIFF=$(cat $CANARY/diff.txt)
+	echo -e "$OUTPUT $MYDIFF"|$MAIL $EMAIL -s "Time to review your ISP Privacy Policy as it has changed" 
+	mv $OLDFILE $OLDFILE.$TS
+	mv $NEWFILE $OLDFILE
+fi
